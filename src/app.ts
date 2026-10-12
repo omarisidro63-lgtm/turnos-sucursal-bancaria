@@ -1,6 +1,7 @@
 import { Component, signal, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
+
 interface Ticket { id: number; code: string; created: number; status: 'waiting'|'called'|'done'; counter?: number }
 interface Counter { id: number; current?: string; busy: boolean }
 const KEY='sucursal-turnos-v1';
@@ -24,9 +25,14 @@ export class AppComponent implements OnInit,OnDestroy {
  ngOnInit(){try{const x=JSON.parse(localStorage.getItem(KEY)||'{}');if(Array.isArray(x.tickets))this.tickets.set(x.tickets);if(Array.isArray(x.counters)&&x.counters.length===4)this.counters.set(x.counters)}catch{};window.addEventListener('storage',this.onStorage);this.tick();this.timer=setInterval(()=>this.tick(),1000)} ngOnDestroy(){clearInterval(this.timer);clearTimeout(this.toastTimer);window.removeEventListener('storage',this.onStorage)}
  tick(){this.clock.set(new Intl.DateTimeFormat('es-MX',{hour:'2-digit',minute:'2-digit'}).format(new Date()))} waiting(){return this.tickets().filter(x=>x.status==='waiting')} called(){return this.tickets().filter(x=>x.status==='called')} recent(){return this.tickets().filter(x=>x.status==='done').slice(-4).reverse()} waitMinutes(){return this.waiting().length?this.waiting().length*this.serviceMinutes:0}
  save(){localStorage.setItem(KEY,JSON.stringify({tickets:this.tickets(),counters:this.counters()}))} newTicket(){const nums=this.tickets().map(t=>t.id);const id=(Math.max(0,...nums)+1);const t:Ticket={id,code:'A'+String(id).padStart(2,'0'),created:Date.now(),status:'waiting'};this.tickets.update(xs=>[...xs,t]);this.lastTicket.set(t.code);this.save()}
- callNext(counter:number){const next=this.waiting()[0];if(!next)return;this.tickets.update(xs=>xs.map(t=>t.id===next.id?{...t,status:'called',counter}:t));this.counters.update(xs=>xs.map(c=>c.id===counter?{...c,busy:true,current:next.code}:c));this.save();this.view.set('clientes');this.alert(`Turno ${next.code}: pase a ventanilla ${counter}`);this.beep()}
+ callNext(counter:number){const next=this.waiting()[0];if(!next)return;this.tickets.update(xs=>xs.map(t=>t.id===next.id?{...t,status:'called',counter}:t));this.counters.update(xs=>xs.map(c=>c.id===counter?{...c,busy:true,current:next.code}:c));this.save();this.view.set('clientes');this.alert(`Turno ${next.code}: pase a ventanilla ${counter}`);this.announce(next.code,counter)}
  finish(id:number){this.tickets.update(xs=>xs.map(t=>t.code===this.counters().find(c=>c.id===id)?.current?{...t,status:'done'}:t));this.counters.update(xs=>xs.map(c=>c.id===id?{...c,busy:false,current:undefined}:c));this.save();this.alert('Ventanilla disponible. Puede llamar al siguiente turno.');this.beep()}
- alert(s:string){this.notice.set(s);clearTimeout(this.toastTimer);this.toastTimer=setTimeout(()=>this.notice.set(''),4500)} beep(){try{this.audioContext??=new AudioContext();if(this.audioContext.state==='suspended')void this.audioContext.resume();const o=this.audioContext.createOscillator(),g=this.audioContext.createGain();o.connect(g);g.connect(this.audioContext.destination);o.frequency.value=880;g.gain.setValueAtTime(.14,this.audioContext.currentTime);g.gain.exponentialRampToValueAtTime(.001,this.audioContext.currentTime+.6);o.start();o.stop(this.audioContext.currentTime+.6)}catch{}}
+ alert(s:string){this.notice.set(s);clearTimeout(this.toastTimer);this.toastTimer=setTimeout(()=>this.notice.set(''),4500)}
+ announce(code:string,counter:number){this.beep();if(!('speechSynthesis'in window))return;const words=(value:number)=>String(value).split('').map(d=>['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve'][Number(d)]).join(' ');const message=`Turno ${code[0]}, ${words(Number(code.slice(1)))}. Pase a ventanilla ${words(counter)}.`;speechSynthesis.cancel();const say=(repeat:boolean)=>{const utterance=new SpeechSynthesisUtterance(message);utterance.lang='es-MX';utterance.rate=.88;utterance.pitch=1;utterance.volume=1;if(repeat)utterance.onend=()=>setTimeout(()=>say(false),700);speechSynthesis.speak(utterance)};setTimeout(()=>say(true),450)}
+ beep(){try{this.audioContext??=new AudioContext();if(this.audioContext.state==='suspended')void this.audioContext.resume();const play=(frequency:number,delay:number)=>{const o=this.audioContext.createOscillator(),g=this.audioContext.createGain();o.connect(g);g.connect(this.audioContext.destination);o.frequency.value=frequency;const start=this.audioContext.currentTime+delay;g.gain.setValueAtTime(.14,start);g.gain.exponentialRampToValueAtTime(.001,start+.32);o.start(start);o.stop(start+.32)};play(880,0);play(660,.38)}catch{}}
 }
+
+
+
 
 
