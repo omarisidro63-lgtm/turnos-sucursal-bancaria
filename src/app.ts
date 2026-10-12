@@ -2,6 +2,8 @@ import { Component, signal, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 
+
+
 interface Ticket { id: number; code: string; created: number; status: 'waiting'|'called'|'done'; counter?: number }
 interface Counter { id: number; current?: string; busy: boolean }
 const KEY='sucursal-turnos-v1';
@@ -21,7 +23,7 @@ const KEY='sucursal-turnos-v1';
 <div class="toast" *ngIf="notice()">{{notice()}}</div>
 `,styles:[]})
 export class AppComponent implements OnInit,OnDestroy {
- view=signal<'clientes'|'staff'>('clientes'); tickets=signal<Ticket[]>([]); counters=signal<Counter[]>([1,2,3,4].map(id=>({id,busy:false}))); lastTicket=signal(''); clock=signal(''); notice=signal(''); readonly serviceMinutes=8; private timer:any; private toastTimer:any; private audioContext:any; private onStorage=(e:StorageEvent)=>{if(e.key===KEY&&e.newValue){try{const x=JSON.parse(e.newValue);this.tickets.set(x.tickets||[]);this.counters.set(x.counters||this.counters())}catch{}}};
+ view=signal<'clientes'|'staff'>('clientes'); tickets=signal<Ticket[]>([]); counters=signal<Counter[]>([1,2,3,4].map(id=>({id,busy:false}))); lastTicket=signal(''); clock=signal(''); notice=signal(''); readonly serviceMinutes=8; private timer:any; private toastTimer:any; private audioContext:any; private onStorage=(e:StorageEvent)=>{if(e.key===KEY&&e.newValue){try{const x=JSON.parse(e.newValue);const previous=this.tickets();const updated:Ticket[]=x.tickets||[];this.tickets.set(updated);this.counters.set(x.counters||this.counters());if(this.view()==='clientes'){const newlyCalled=updated.find(t=>t.status==='called'&&previous.some(old=>old.id===t.id&&old.status==='waiting'));if(newlyCalled?.counter)this.announce(newlyCalled.code,newlyCalled.counter)}}catch{}}};
  ngOnInit(){try{const x=JSON.parse(localStorage.getItem(KEY)||'{}');if(Array.isArray(x.tickets))this.tickets.set(x.tickets);if(Array.isArray(x.counters)&&x.counters.length===4)this.counters.set(x.counters)}catch{};window.addEventListener('storage',this.onStorage);this.tick();this.timer=setInterval(()=>this.tick(),1000)} ngOnDestroy(){clearInterval(this.timer);clearTimeout(this.toastTimer);window.removeEventListener('storage',this.onStorage)}
  tick(){this.clock.set(new Intl.DateTimeFormat('es-MX',{hour:'2-digit',minute:'2-digit'}).format(new Date()))} waiting(){return this.tickets().filter(x=>x.status==='waiting')} called(){return this.tickets().filter(x=>x.status==='called')} recent(){return this.tickets().filter(x=>x.status==='done').slice(-4).reverse()} waitMinutes(){return this.waiting().length?this.waiting().length*this.serviceMinutes:0}
  save(){localStorage.setItem(KEY,JSON.stringify({tickets:this.tickets(),counters:this.counters()}))} newTicket(){const nums=this.tickets().map(t=>t.id);const id=(Math.max(0,...nums)+1);const t:Ticket={id,code:'A'+String(id).padStart(2,'0'),created:Date.now(),status:'waiting'};this.tickets.update(xs=>[...xs,t]);this.lastTicket.set(t.code);this.save()}
