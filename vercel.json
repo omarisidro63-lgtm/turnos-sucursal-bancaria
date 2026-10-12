@@ -1,0 +1,1 @@
+{"version":2,"builds":[{"src":"api/index.py","use":"@vercel/python"},{"src":"package.json","use":"@vercel/static-build","config":{"distDir":"dist/turnos/browser","buildCommand":"npm run build"}}],"routes":[{"src":"/api/(.*)","dest":"api/index.py"},{"src":"/(.*)","dest":"dist/turnos/browser/$1"}]}
